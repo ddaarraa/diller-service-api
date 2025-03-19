@@ -1,0 +1,2 @@
+def getRawLog() :
+    return "hello"

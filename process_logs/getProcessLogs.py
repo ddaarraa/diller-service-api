@@ -1,0 +1,2 @@
+def getProcessLog() :
+    return "hello"
