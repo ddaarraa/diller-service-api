@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  fastapi:
+    build: .
+    container_name: diller-service-api
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./app/source_folder:/app/source_folder
+      - ./app/destination_folder:/app/destination_folder
+    environment:
+      - PYTHONUNBUFFERED=1
