@@ -1,4 +1,5 @@
 import datetime
+from typing import List
 from pydantic import BaseModel,Field, ConfigDict
 
 class TimeModel(BaseModel):
@@ -24,3 +25,12 @@ class vpc_logs(BaseModel):
     time: TimeModel
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
+
+class vpc_logs_response(BaseModel):
+    page: int
+    page_size: int
+    total_logs: int
+    total_pages: int
+    logs: List[vpc_logs]
+    class Config:
+        orm_mode = True

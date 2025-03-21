@@ -1,12 +1,14 @@
-from app.models.app_logs import app_logs
+import datetime
+from app.models.app_logs import app_logs, app_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional
-from app.models.vpc_logs import vpc_logs
+from app.models.vpc_logs import vpc_logs, vpc_logs_response
 from app.db import db 
+from math import ceil
 
 router = APIRouter()
 
-@router.get("/raw-logs/application_logs_collection", response_model=List[app_logs])
+@router.get("/raw-logs/application_logs_collection", response_model=app_logs_response)
 async def get_application_logs_collection(page: int = Query(1, alias="page", ge=1),
     page_size: int = Query(10, alias="page_size"),
     collection_name: str = Query("application_logs_collection", alias="collection_name"),
@@ -19,34 +21,44 @@ async def get_application_logs_collection(page: int = Query(1, alias="page", ge=
     collection = db['application_logs_collection']
 
     skip = (page - 1) * page_size
-
-    items = []
     
     filters = {"$text": {"$search": query}} if query else {}
+    total_logs = await collection.count_documents(filters)
+    total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
     items_cursor = await collection.find(filters).sort("_id").skip(skip).limit(page_size).to_list(None)
 
-    for item in items_cursor:
-        items.append(
-            app_logs(
-                id=str(item["_id"]),
-                source=item["source"],
-                log=item["log"],
-                container_id=item["container_id"],
-                container_name=item["container_name"],
-                srcaddr=item["srcaddr"],
-                method=item["method"],
-                message=item["message"],
-                status=item["status"],
-                action=item["action"],
-                time={"date": item["time"]}
-            )
-        )
+    logs = [
+        app_log.dict()  # Serialize each app_log instance to a dictionary
+        for item in items_cursor
+        for app_log in [app_logs(
+            id=str(item["_id"]),
+            source=item["source"],
+            log=item["log"],
+            container_id=item["container_id"],
+            container_name=item["container_name"],
+            srcaddr=item["srcaddr"],
+            method=item["method"],
+            message=item["message"],
+            status=item["status"],
+            action=item["action"],
+            time={"date": item["time"]},  # Extract the date from MongoDB's $date field
+        )]
+    ]
 
-    return items
+    resposenData : app_logs_response = {
+        "page" : page,
+        "page_size" : page_size,
+        "total_logs" : total_logs,
+        "total_pages" : total_pages,
+        "logs" : logs
+    }
+
+    return resposenData
 
 
-@router.get("/raw-logs/vpc_logs_collection", response_model=List[vpc_logs])
+
+@router.get("/raw-logs/vpc_logs_collection", response_model=vpc_logs_response)
 async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
     page_size: int = Query(10, alias="page_size"),
     collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
@@ -59,10 +71,14 @@ async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
     collection = db[collection_name]
 
     skip = (page - 1) * page_size
-
+    
     items = []
     
     filters = {"$text": {"$search": query}} if query else {}
+
+    total_logs = await collection.count_documents(filters)
+    
+    total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
     items_cursor = await collection.find(filters).sort("_id").skip(skip).limit(page_size).to_list(None)
 
@@ -87,4 +103,10 @@ async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
             )
         )
 
-    return items
+    return {
+        "page" : page,
+        "page_size" : page_size,
+        "total_logs" : total_logs,
+        "total_pages" : total_pages,
+        "logs" : items
+    }
