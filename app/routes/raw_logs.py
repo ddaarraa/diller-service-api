@@ -4,7 +4,7 @@ from tokenize import String
 from app.models.app_logs import app_logs, app_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional
-from app.models.vpc_logs import vpc_logs, vpc_logs_response
+from app.models.vpc_logs import TimeModel, vpc_logs, vpc_logs_response
 from app.db import db 
 from math import ceil
 
@@ -35,7 +35,7 @@ async def get_application_logs_collection(page: int = Query(1, alias="page", ge=
     total_logs = await collection.count_documents(filters)
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
-    items_cursor = await collection.find(filters).sort("_id").skip(skip).limit(page_size).to_list(None)
+    items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
 
     logs = [
         app_log.dict()  # Serialize each app_log instance to a dictionary
@@ -51,7 +51,7 @@ async def get_application_logs_collection(page: int = Query(1, alias="page", ge=
             message=item["message"],
             status=item["status"],
             action=item["action"],
-            time={"date": item["time"]},  # Extract the date from MongoDB's $date field
+            time={"date": TimeModel(date=item["time"]).dict()["date"]}, 
         )]
     ]
 
@@ -93,7 +93,7 @@ async def get_vpc_logs_collection(
 
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
-    items_cursor = await collection.find(filters).sort("_id").skip(skip).limit(page_size).to_list(None)
+    items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
 
     for item in items_cursor:
         items.append(
@@ -112,7 +112,7 @@ async def get_vpc_logs_collection(
                 end=item["end"],
                 action=item["action"],
                 log_status=item["log_status"],
-                time={"date": item["time"]}
+                time={"date": TimeModel(date=item["time"]).dict()["date"]}
             )
         )
 
