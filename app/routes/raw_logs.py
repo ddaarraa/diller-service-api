@@ -1,4 +1,5 @@
 import datetime
+from app.models.sys_logs import sys_logs
 from fastapi import APIRouter, Query
 from typing import List, Optional, Union
 from math import ceil
@@ -9,7 +10,7 @@ from app.db import db
 
 router = APIRouter()
 
-@router.get("/raw-logs", response_model=Union[app_logs_response, vpc_logs_response])
+@router.get("/raw-logs", response_model=Union[app_logs_response, vpc_logs_response ,sys_logs])
 async def get_logs(
     page: int = Query(1, alias="page", ge=1),
     page_size: int = Query(10, alias="page_size"),
@@ -19,25 +20,33 @@ async def get_logs(
     end_date: Optional[str] = Query(None, alias="end_date")
 ):
     
-    if collection_name not in ["application_logs_collection", "vpc_logs_collection"]:
+    if collection_name not in ["application_logs_collection", "vpc_logs_collection", "system_logs_collection"]:
         return {"error": "Invalid collection_name"}
 
     collection = db[collection_name]
-    model = app_logs if collection_name == "application_logs_collection" else vpc_logs
+
+    model = None
+    if collection_name == "application_logs_collection":
+        model = app_logs
+    elif collection_name == "vpc_logs_collection":
+        model = vpc_logs
+    else:  
+        model = sys_logs
 
     skip = (page - 1) * page_size
-    filters = {}
 
+    filters = {}
+    
     if query:
         filters["$or"] = []
         sample_doc = await collection.find_one()
         CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
 
     total_logs = await collection.count_documents(filters)
-    
+
     items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
 
-    logs = [ ]
+    logs = []
 
     for item in items_cursor :
             time = TimeModel(date=item["time"]).dict()["date"]
@@ -54,7 +63,7 @@ async def get_logs(
 
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
-    resposenData : app_logs_response = {
+    resposenData = {
         "page" : page,
         "page_size" : page_size,
         "total_logs" : total_logs,
