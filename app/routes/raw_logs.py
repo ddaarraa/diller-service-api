@@ -14,17 +14,14 @@ async def get_logs(
     page: int = Query(1, alias="page", ge=1),
     page_size: int = Query(10, alias="page_size"),
     collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
-    query: Optional[str] = Query(None, alias="search")
+    query: Optional[str] = Query(None, alias="search"),
+    start_date: Optional[str] = Query(None, alias="start_date"),
+    end_date: Optional[str] = Query(None, alias="end_date")
 ):
-    """
-    Fetch paginated items from MongoDB for both application_logs_collection and vpc_logs_collection.
-    Default page size = 10.
-    """
-
+    
     if collection_name not in ["application_logs_collection", "vpc_logs_collection"]:
         return {"error": "Invalid collection_name"}
 
-    # Select the correct collection and model
     collection = db[collection_name]
     model = app_logs if collection_name == "application_logs_collection" else vpc_logs
 
@@ -37,27 +34,36 @@ async def get_logs(
         CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
 
     total_logs = await collection.count_documents(filters)
-    total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
-
+    
     items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
 
-    logs = [
-    model(
-        id=str(item["_id"]),
-        **{key: item[key] for key in item if key in model.__annotations__ and key != "time"},
-        time={"date": TimeModel(date=item["time"]).dict()["date"]}
-    )
-    for item in items_cursor
-]
+    logs = [ ]
 
+    for item in items_cursor :
+            time = TimeModel(date=item["time"]).dict()["date"]
+            if is_datetime_in_period(check_time=time, start_time=start_date, end_time=end_date) :
+                logs.append(
+                    model(
+                            id=str(item["_id"]),
+                            **{key: item[key] for key in item if key in model.__annotations__ and key != "time"},
+                            time={"date": time}
+                        )
+                )
+            else :
+                total_logs = total_logs - 1
 
-    return {
-        "page": page,
-        "page_size": page_size,
-        "total_logs": total_logs,
-        "total_pages": total_pages,
-        "logs": logs
+    total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
+
+    resposenData : app_logs_response = {
+        "page" : page,
+        "page_size" : page_size,
+        "total_logs" : total_logs,
+        "total_pages" : total_pages,
+        "logs" : logs
     }
+
+    return resposenData
+
 
 def CustomSearch(sample_doc, model, filters, query):
     for field in sample_doc.keys():
@@ -71,3 +77,13 @@ def CustomSearch(sample_doc, model, filters, query):
                     pass  
             elif field_type == str:
                 filters["$or"].append({field: {"$regex": query, "$options": "i"}})
+
+
+def is_datetime_in_period(check_time: datetime, start_time: datetime = None, end_time: datetime = None) -> bool:
+    if start_time and end_time :
+        return start_time <= check_time <= end_time
+    elif start_time != None :
+        return start_time <= check_time
+    elif end_time != None :
+        return check_time <= end_time
+    return True
