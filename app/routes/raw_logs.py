@@ -1,4 +1,6 @@
 import datetime
+from tkinter.tix import INTEGER
+from tokenize import String
 from app.models.app_logs import app_logs, app_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional
@@ -22,7 +24,14 @@ async def get_application_logs_collection(page: int = Query(1, alias="page", ge=
 
     skip = (page - 1) * page_size
     
-    filters = {"$text": {"$search": query}} if query else {}
+    filters = {}
+    if query:
+        filters["$or"] = []
+
+        sample_doc = await collection.find_one()
+        
+        CustomSearch(sample_doc=sample_doc, model=app_logs, filters=filters, query=query)
+
     total_logs = await collection.count_documents(filters)
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
@@ -59,14 +68,12 @@ async def get_application_logs_collection(page: int = Query(1, alias="page", ge=
 
 
 @router.get("/raw-logs/vpc_logs_collection", response_model=vpc_logs_response)
-async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
-    page_size: int = Query(10, alias="page_size"),
-    collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
-    query: Optional[str] = Query(None, alias="search")):
-    """
-    Fetch paginated items from MongoDB.
-    Default page size = 10.
-    """
+async def get_vpc_logs_collection(
+        page: int = Query(1, alias="page", ge=1),
+        page_size: int = Query(10, alias="page_size"),
+        collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
+        query: Optional[str] = Query(None, alias="search"
+    )):
 
     collection = db[collection_name]
 
@@ -74,10 +81,16 @@ async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
     
     items = []
     
-    filters = {"$text": {"$search": query}} if query else {}
+    filters = {}
+    if query:
+        filters["$or"] = []
 
+        sample_doc = await collection.find_one()
+        
+        CustomSearch(sample_doc=sample_doc, model=vpc_logs, filters=filters, query=query)
+                    
     total_logs = await collection.count_documents(filters)
-    
+
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
     items_cursor = await collection.find(filters).sort("_id").skip(skip).limit(page_size).to_list(None)
@@ -110,3 +123,17 @@ async def get_vpc_logs_collection(page: int = Query(1, alias="page", ge=1),
         "total_pages" : total_pages,
         "logs" : items
     }
+
+
+def CustomSearch(sample_doc, model, filters, query) :
+    for field in sample_doc.keys() :
+            if field in model.__annotations__.keys() :
+                field_type = model.__annotations__[field] 
+                if field_type == int :
+                    try:
+                        query_number = float(query)
+                        filters["$or"].append({field: query_number})
+                    except ValueError:
+                        pass  
+                elif field_type == str : 
+                    filters["$or"].append({field: {"$regex": query, "$options": "i"}})
