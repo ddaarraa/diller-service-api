@@ -4,3 +4,4 @@ motor
 pydantic>=2.0,<3.0
 pymongo
 pytz
+python-dateutil

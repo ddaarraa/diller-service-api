@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from typing import List, Optional, Union
 from math import ceil
 from dateutil import parser
+from pydantic import BaseModel
 
 from app.models.app_logs import app_logs, app_logs_response
 from app.models.vpc_logs import vpc_logs, vpc_logs_response, TimeModel
@@ -25,32 +26,20 @@ async def get_logs(
         return {"error": "Invalid collection_name"}
 
     collection = db[collection_name]
-
-    model = None
-    if collection_name == "application_logs_collection":
-        model = app_logs
-    elif collection_name == "vpc_logs_collection":
-        model = vpc_logs
-    else:  
-        model = sys_logs
-
-    skip = (page - 1) * page_size
-
     filters = {}
+
+    model = model_selection(collection_name=collection_name)
     
     if query:
         filters["$or"] = []
         sample_doc = await collection.find_one()
         CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
 
-    if start_date or end_date:
-        date_filter = {}
-        if start_date:
-            date_filter["$gte"] = parser.parse(start_date)
-        if end_date:
-            date_filter["$lte"] = parser.parse(end_date)
-        filters["time"] = date_filter
-
+    if start_date or end_date :
+        time_filter(filters=filters, start_date=start_date, end_date=end_date)
+    
+    skip = (page - 1) * page_size
+      
     total_logs = await collection.count_documents(filters)
 
     items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
@@ -94,11 +83,19 @@ def CustomSearch(sample_doc, model, filters, query):
                 filters["$or"].append({field: {"$regex": query, "$options": "i"}})
 
 
-def is_datetime_in_period(check_time: datetime, start_time: datetime = None, end_time: datetime = None) -> bool:
-    if start_time and end_time:
-        return start_time <= check_time <= end_time
-    elif start_time is not None:
-        return start_time <= check_time
-    elif end_time is not None:
-        return check_time <= end_time
-    return True
+def time_filter(filters, start_date: datetime = None, end_date: datetime = None):
+    date_filter = {}
+    if start_date:
+        date_filter["$gte"] = parser.parse(start_date)
+    if end_date:
+        date_filter["$lte"] = parser.parse(end_date)
+    filters["time"] = date_filter
+    
+
+def model_selection(collection_name: str): 
+    if collection_name == "application_logs_collection":
+        return app_logs
+    elif collection_name == "vpc_logs_collection":
+        return vpc_logs
+    elif collection_name == "app_logs_collection":  
+        return sys_logs
