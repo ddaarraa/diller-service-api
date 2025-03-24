@@ -1,5 +1,5 @@
 import datetime
-from app.models.sys_logs import sys_logs
+from app.models.sys_logs import sys_logs, system_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional, Union
 from math import ceil
@@ -12,7 +12,7 @@ from app.db import db
 
 router = APIRouter()
 
-@router.get("/raw-logs", response_model=Union[app_logs_response, vpc_logs_response ,sys_logs])
+@router.get("/raw-logs", response_model=Union[app_logs_response, vpc_logs_response ,system_logs_response])
 async def get_logs(
     page: int = Query(1, alias="page", ge=1),
     page_size: int = Query(10, alias="page_size"),
@@ -22,7 +22,7 @@ async def get_logs(
     end_date: Optional[str] = Query(None, alias="end_date")
 ):
     
-    if collection_name not in ["application_logs_collection", "vpc_logs_collection", "system_logs_collection"]:
+    if collection_name not in ["application_logs_collection", "vpc_logs_collection", "sys_logs_collection"]:
         return {"error": "Invalid collection_name"}
 
     collection = db[collection_name]
@@ -97,5 +97,5 @@ def model_selection(collection_name: str):
         return app_logs
     elif collection_name == "vpc_logs_collection":
         return vpc_logs
-    elif collection_name == "app_logs_collection":  
+    elif collection_name == "sys_logs_collection":  
         return sys_logs
