@@ -8,6 +8,12 @@ services:
       - "8001:8000"
     volumes:
       - ./app:/app
+    networks:
+      - shared_network
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+
+networks:
+  shared_network:
+    external: true
