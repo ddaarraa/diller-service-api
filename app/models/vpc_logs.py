@@ -10,12 +10,12 @@ class vpc_logs(BaseModel):
     interface_id: str
     srcaddr: str
     dstaddr: str
-    srcport: int
-    dstport: int
-    protocol: int
-    packets: int
-    bytes: int
-    end: int
+    srcport: str
+    dstport: str
+    protocol: str
+    packets: str
+    bytes: str
+    end: str
     action: str
     log_status: str
     time: TimeModel
