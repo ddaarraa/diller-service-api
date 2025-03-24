@@ -3,6 +3,7 @@ from app.models.sys_logs import sys_logs
 from fastapi import APIRouter, Query
 from typing import List, Optional, Union
 from math import ceil
+from dateutil import parser
 
 from app.models.app_logs import app_logs, app_logs_response
 from app.models.vpc_logs import vpc_logs, vpc_logs_response, TimeModel
@@ -42,36 +43,41 @@ async def get_logs(
         sample_doc = await collection.find_one()
         CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
 
+    if start_date or end_date:
+        date_filter = {}
+        if start_date:
+            date_filter["$gte"] = parser.parse(start_date)
+        if end_date:
+            date_filter["$lte"] = parser.parse(end_date)
+        filters["time"] = date_filter
+
     total_logs = await collection.count_documents(filters)
 
     items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
 
     logs = []
 
-    for item in items_cursor :
-            time = TimeModel(date=item["time"]).dict()["date"]
-            if is_datetime_in_period(check_time=time, start_time=start_date, end_time=end_date) :
-                logs.append(
-                    model(
-                            id=str(item["_id"]),
-                            **{key: item[key] for key in item if key in model.__annotations__ and key != "time"},
-                            time={"date": time}
-                        )
-                )
-            else :
-                total_logs = total_logs - 1
+    for item in items_cursor:
+        time = TimeModel(date=item["time"]).dict()["date"]
+        logs.append(
+            model(
+                id=str(item["_id"]),
+                **{key: item[key] for key in item if key in model.__annotations__ and key != "time"},
+                time={"date": time}
+            )
+        )
 
     total_pages = ceil(total_logs / page_size) if total_logs > 0 else 1
 
-    resposenData = {
-        "page" : page,
-        "page_size" : page_size,
-        "total_logs" : total_logs,
-        "total_pages" : total_pages,
-        "logs" : logs
+    response_data = {
+        "page": page,
+        "page_size": page_size,
+        "total_logs": total_logs,
+        "total_pages": total_pages,
+        "logs": logs
     }
 
-    return resposenData
+    return response_data
 
 
 def CustomSearch(sample_doc, model, filters, query):
@@ -89,10 +95,10 @@ def CustomSearch(sample_doc, model, filters, query):
 
 
 def is_datetime_in_period(check_time: datetime, start_time: datetime = None, end_time: datetime = None) -> bool:
-    if start_time and end_time :
+    if start_time and end_time:
         return start_time <= check_time <= end_time
-    elif start_time != None :
+    elif start_time is not None:
         return start_time <= check_time
-    elif end_time != None :
+    elif end_time is not None:
         return check_time <= end_time
     return True
