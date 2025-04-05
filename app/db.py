@@ -10,12 +10,15 @@ DATABASE_NAME = "logs_db"
 
 
 client = None
-db = None
+log_db = None
+correlation_db = None
 
 try:
     client = AsyncIOMotorClient(MONGO_URI)
     # client = MongoClient(MONGO_URI)
-    db = client["logs_db"]
+    log_db = client["logs_db"]
+    correlation_db = client["processed_logs_db"]
+
     print("MongoDB connection established!")
 except Exception as e:
     logging.error(f"Failed to connect to MongoDB: {e}")

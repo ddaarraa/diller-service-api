@@ -1,6 +1,5 @@
-import datetime
 from typing import List
-from app.models.time import TimeModel
+from app.log_models.time import TimeModel
 from pydantic import BaseModel,Field, ConfigDict
 
 class sys_logs(BaseModel):

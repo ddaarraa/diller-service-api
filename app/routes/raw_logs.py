@@ -1,14 +1,13 @@
 import datetime
-from app.models.sys_logs import sys_logs, system_logs_response
+from app.log_models.sys_logs import sys_logs, system_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional, Union
 from math import ceil
 from dateutil import parser
-from pydantic import BaseModel
-
-from app.models.app_logs import app_logs, app_logs_response
-from app.models.vpc_logs import vpc_logs, vpc_logs_response, TimeModel
-from app.db import db
+from app.log_models.app_logs import app_logs, app_logs_response
+from app.log_models.vpc_logs import vpc_logs, vpc_logs_response
+from app.db import log_db
+from log_models.time import TimeModel
 
 router = APIRouter()
 
@@ -25,7 +24,7 @@ async def get_logs(
     if collection_name not in ["application_logs_collection", "vpc_logs_collection", "sys_logs_collection"]:
         return {"error": "Invalid collection_name"}
 
-    collection = db[collection_name]
+    collection = log_db[collection_name]
     filters = {}
 
     model = model_selection(collection_name=collection_name)
