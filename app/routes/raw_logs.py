@@ -11,6 +11,46 @@ from log_models.time import TimeModel
 
 router = APIRouter()
 
+@router.get("/raw-logs-id")
+async def get_log_by_id(
+    _id: str = Query(..., alias="_id"),
+    collection_name: str = Query("application_logs_collection", alias="collection_name")
+):
+    if collection_name not in ["application_logs_collection", "vpc_logs_collection", "sys_logs_collection"]:
+        raise HTTPException(status_code=400, detail="Invalid collection_name")
+
+    collection = log_db[collection_name]
+    model = model_selection(collection_name)
+
+    # Try both ObjectId and string _id
+    doc = None
+    try:
+        doc = await collection.find_one({"_id": ObjectId(_id)})
+    except Exception:
+        doc = await collection.find_one({"_id": _id})
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    time = TimeModel(date=doc["time"]).dict()["date"]
+
+    parsed_log = model(
+        id=str(doc["_id"]),
+        **{key: doc[key] for key in doc if key in model.__annotations__ and key != "time"},
+        time={"date": time}
+    )
+
+    response_data = {
+        "page": 1,
+        "page_size": 1,
+        "total_logs": 1,
+        "total_pages": 1,
+        "logs": [parsed_log]
+    }
+
+    return response_data
+
+
 @router.get("/raw-logs", response_model=Union[app_logs_response, vpc_logs_response ,system_logs_response])
 async def get_logs(
     page: int = Query(1, alias="page", ge=1),
