@@ -1,6 +1,8 @@
 import datetime
 from http.client import HTTPException
 
+from bson import ObjectId
+
 from app.log_models.sys_logs import sys_logs, system_logs_response
 from fastapi import APIRouter, Query
 from typing import List, Optional, Union
@@ -24,8 +26,10 @@ async def get_log_by_id(
     collection = log_db[collection_name]
     model = model_selection(collection_name)
 
-    # Try both ObjectId and string _id
-    doc = await collection.find_one({"_id": _id})
+    try:
+        doc = await collection.find_one({"_id": ObjectId(_id)})
+    except Exception:
+        doc = await collection.find_one({"_id": _id})
 
     if not doc:
         raise HTTPException(status_code=404, detail="Log not found")
