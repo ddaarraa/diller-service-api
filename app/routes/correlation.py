@@ -27,7 +27,7 @@ async def get_logs(
       
     total_data = await collection.count_documents(filters)
 
-    items_cursor = await collection.find(filters).sort("time", -1).skip(skip).limit(page_size).to_list(None)
+    items_cursor = await collection.find(filters).sort("time", 1).skip(skip).limit(page_size).to_list(None)
 
     correlation_data = []
 
@@ -36,8 +36,7 @@ async def get_logs(
             {
                 "id" :str(item["_id"]),
                 "time" :item["date"],
-                "correlation" : item.get("correlation", [])
-                
+                "correlation" : item.get("correlation", [])   
             }
         )
     total_pages = ceil(total_data / page_size) if total_data > 0 else 1
