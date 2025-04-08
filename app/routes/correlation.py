@@ -27,7 +27,7 @@ async def get_logs(
       
     total_data = await collection.count_documents(filters)
 
-    items_cursor = await collection.find(filters).sort("time", 1).skip(skip).limit(page_size).to_list(None)
+    items_cursor = await collection.find(filters).sort("date", -1).skip(skip).limit(page_size).to_list(None)
 
     correlation_data = []
 
