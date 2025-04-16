@@ -5,7 +5,7 @@ from bson import ObjectId
 
 from app.log_models.sys_logs import sys_logs, system_logs_response
 from fastapi import APIRouter, Query
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 from math import ceil
 from dateutil import parser
 from app.log_models.app_logs import app_logs, app_logs_response
@@ -105,6 +105,35 @@ async def get_logs(
 
     return response_data
 
+@router.get("/all-raw-logs", response_model=Dict[str, List[Union[app_logs, vpc_logs, sys_logs]]])
+async def get_logs(
+   
+    collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
+):
+    
+    if collection_name not in ["application_logs_collection", "vpc_logs_collection", "sys_logs_collection"]:
+        return {"error": "Invalid collection_name"}
+
+    collection = log_db[collection_name]
+
+    model = model_selection(collection_name=collection_name)
+    
+
+    items = await collection.find({}).to_list(None)
+
+    logs = []
+    for item in items:
+        formatted_time = TimeModel(date=item["time"]).dict()["date"]
+        logs.append(
+            model(
+                id=str(item["_id"]),
+                **{k: item[k] for k in item if k in model.__annotations__ and k != "time"},
+                time={"date": formatted_time}
+            )
+        )
+
+    return {"logs": logs}
+
 
 def CustomSearch(sample_doc, model, filters, query):
     for field in sample_doc.keys():
@@ -136,3 +165,4 @@ def model_selection(collection_name: str):
         return vpc_logs
     elif collection_name == "sys_logs_collection":  
         return sys_logs
+    
