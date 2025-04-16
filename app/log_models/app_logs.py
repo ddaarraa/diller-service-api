@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel,Field, ConfigDict
 
 class TimeModel(BaseModel):
@@ -11,10 +11,10 @@ class app_logs(BaseModel):
     log: str
     container_id: str
     container_name: str
-    srcaddr: str
-    method: str
-    message: str
-    status: str
+    srcaddr: Optional[str] = None
+    method: Optional[str] = None
+    message: Optional[str] = None
+    status: Optional[str] = None
     action: str
     time: TimeModel
 
