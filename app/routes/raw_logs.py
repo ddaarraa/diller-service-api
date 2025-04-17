@@ -105,11 +105,15 @@ async def get_logs(
 
     return response_data
 
+SECRET_KEY = "w_RZQ0Gj1hMlEjUtAHXk3GnHRspRm8zKzPzE0xxm-Zs"
+
 @router.get("/all-raw-logs", response_model=Dict[str, List[Union[app_logs, vpc_logs, sys_logs]]])
 async def get_logs(
-   
     collection_name: str = Query("vpc_logs_collection", alias="collection_name"),
+    secret_key : str = Query("", alias="secret_key"),
 ):
+    if secret_key != SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid Secret Key")
     
     if collection_name not in ["application_logs_collection", "vpc_logs_collection", "sys_logs_collection"]:
         return {"error": "Invalid collection_name"}

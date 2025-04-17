@@ -5,7 +5,7 @@ SECRET_KEY = "w_RZQ0Gj1hMlEjUtAHXk3GnHRspRm8zKzPzE0xxm-Zs"
 
 class SecretKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        public_paths = ["/docs", "/openapi.json", "/redoc"]
+        public_paths = ["/docs", "/openapi.json", "/redoc", "/all-raw-logs"]
         if request.url.path in public_paths:
             return await call_next(request)
         
