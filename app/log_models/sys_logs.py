@@ -7,7 +7,7 @@ class sys_logs(BaseModel):
     host: str
     process: str
     message: str
-    srcaddr: str
+    srcaddr: str Optional[str] = None
     action: str
     time: TimeModel
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
