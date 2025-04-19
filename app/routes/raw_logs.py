@@ -1,5 +1,7 @@
+import ast
 import datetime
 from http.client import HTTPException
+import json
 
 from bson import ObjectId
 
@@ -68,9 +70,40 @@ async def get_logs(
     model = model_selection(collection_name=collection_name)
     
     if query:
-        filters["$or"] = []
-        sample_doc = await collection.find_one()
-        CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
+        # print(type(query))
+        if "and" in query:
+            try :
+                query = query.strip() 
+                filters["$and"] = []
+                searchs = {}
+
+                for part in query.split(" and ") : 
+                    if "{" in part :
+                        part = ast.literal_eval(part)
+                        filters["$and"].append(part)
+                    else:
+                        searchs["$or"] = []
+                        sample_doc = await collection.find_one()
+                        CustomSearch(sample_doc=sample_doc, model=model, filters=searchs, query=part)
+                        filters["$and"].append(searchs)
+                print(filters)
+            except :
+                print('error : parsing')
+        else :
+            try:
+                if "{" in query:
+                    query = query.strip()
+                    filters = ast.literal_eval(query)
+
+                    if "_id" in filters and isinstance(filters["_id"], str):
+                        filters["_id"] = ObjectId(filters["_id"]) 
+                else:
+                    filters["$or"] = []
+                    sample_doc = await collection.find_one()
+                    CustomSearch(sample_doc=sample_doc, model=model, filters=filters, query=query)
+                    print(filters)
+            except json.JSONDecodeError:
+                raise HTTPException(status_code=400, detail="Invalid query format")
 
     if start_date or end_date :
         time_filter(filters=filters, start_date=start_date, end_date=end_date)

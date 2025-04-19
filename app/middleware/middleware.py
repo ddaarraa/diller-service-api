@@ -1,4 +1,4 @@
-from fastapi import Request, HTTPException
+from fastapi import Header, Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 SECRET_KEY = "w_RZQ0Gj1hMlEjUtAHXk3GnHRspRm8zKzPzE0xxm-Zs"
@@ -13,3 +13,8 @@ class SecretKeyMiddleware(BaseHTTPMiddleware):
         if key != SECRET_KEY:
             raise HTTPException(status_code=403, detail="Forbidden: Invalid Secret Key")
         return await call_next(request)
+    
+def verify_secret_key(x_secret_key: str = Header(...)):
+    # Optional: move this check into the middleware if you're using both
+    if x_secret_key != SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Invalid Secret Key")

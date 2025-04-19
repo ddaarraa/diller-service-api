@@ -1,9 +1,9 @@
-from app.middleware.middleware import SecretKeyMiddleware
+from app.middleware.middleware import SecretKeyMiddleware, verify_secret_key
 from app.routes import raw_logs, correlation
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+app = FastAPI(dependencies=[Depends(verify_secret_key)])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
